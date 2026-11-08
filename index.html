@@ -4,6 +4,10 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Arcadia</title>
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#160e30">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&display=swap" rel="stylesheet">
 <style>
 :root{--bg:#e8ebf0;--card:#fff;--ink:#181c25;--mute:#69707f;--acc:#3556ff;--acc-ink:#fff;--line:#d3d8e0;--danger:#c4352b;
@@ -242,6 +246,7 @@ function formItem(e){
   inc();
 }
 render();initFB();
+if('serviceWorker' in navigator)navigator.serviceWorker.register('sw.js').catch(()=>{});
 </script>
 </body>
 </html>
