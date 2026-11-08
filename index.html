@@ -114,7 +114,23 @@ const LOGOS=[
 [/neo ?geo/i,'#222','#f2c200','NEO GEO','SNK'],
 [/steam deck/i,'#1b2838','#66c0f4','STEAM','Steam Deck']
 ];
-function logoFor(n){
+const FOTOS=[
+[/\b2 ?ds\b/,'nintendo-2ds-xl'],[/\b3 ?ds\b/,'nintendo-3ds'],[/\bds ?lite\b/,'nintendo-ds-lite'],[/\bn?ds\b/,'nintendo-ds'],
+[/switch/,'nintendo-switch'],[/\bwii ?u\b/,'nintendo-wii-u'],[/\bwii\b/,'nintendo-wii'],
+[/(game ?boy advance|gba) ?sp/,'nintendo-gameboy-advance-sp'],[/game ?boy advance|\bgba\b/,'nintendo-gameboy-advance'],
+[/game ?boy colou?r|\bgbc\b/,'nintendo-gameboy-color'],[/game ?boy|\bgb\b/,'nintendo-gameboy'],
+[/master ?system/,'sega-master-system-ii'],
+[/play ?station ?(1|one)\b|\bps ?1\b|\bpsx\b/,'sony-playstation-1'],[/play ?station ?2|\bps ?2\b/,'sony-playstation-2'],
+[/play ?station ?3|\bps ?3\b/,'sony-playstation-3'],[/play ?station ?4|\bps ?4\b/,'sony-playstation-4'],[/\bpsp\b/,'sony-psp'],
+[/xbox ?360/,'xbox-360'],[/xbox ?one/,'xbox-one']
+];
+function photoFor(n){
+  const s=n.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/[^a-z0-9]+/g,' ').trim();
+  const f=FOTOS.find(x=>x[0].test(s));
+  return f?'consolas/'+f[1]+'.webp':'';
+}
+function logoFor(n){return photoFor(n)||badgeFor(n)}
+function badgeFor(n){
   const e=LOGOS.find(l=>l[0].test(n));if(!e)return'';
   const d=(n.match(/\d+/)||[''])[0],big=e[3].replace('#',d),fs=big.length>5?70:big.length>3?100:130;
   const s=`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 400"><rect width="400" height="400" fill="${e[1]}"/><text x="200" y="215" text-anchor="middle" font-family="Arial,sans-serif" font-weight="700" font-size="${fs}" fill="${e[2]}">${big}</text><text x="200" y="290" text-anchor="middle" font-family="Arial,sans-serif" font-size="30" fill="${e[2]}" opacity=".85">${e[4]}</text></svg>`;
