@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Arcadia</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#e8ebf0;--card:#fff;--ink:#181c25;--mute:#69707f;--acc:#3556ff;--acc-ink:#fff;--line:#d3d8e0;--danger:#c4352b;
+box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#12151b;--card:#1c212b;--ink:#eef0f5;--mute:#98a0b0;--acc:#7b92ff;--acc-ink:#10131a;--line:#2c3340;--danger:#ff7b70}}
+*{box-sizing:border-box}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{margin:0;background:var(--bg);color:var(--ink);font:400 16px/1.4 'Space Grotesk',system-ui,sans-serif;min-height:100vh}
+header{display:flex;align-items:center;gap:10px;padding:14px 16px;position:sticky;top:env(safe-area-inset-top,0px);background:var(--bg);z-index:5}
+header h1{flex:1;margin:0;font-size:22px;font-weight:700;letter-spacing:-.02em;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ib{width:44px;height:44px;border-radius:12px;border:0;background:var(--acc);color:var(--acc-ink);font:700 26px/1 inherit;cursor:pointer}
+.ib.back{background:var(--card);color:var(--ink);border:1px solid var(--line);font-size:20px}
+button:focus-visible,input:focus-visible,select:focus-visible,.card:focus-visible{outline:3px solid var(--acc);outline-offset:2px}
+main{padding:4px 16px 40px;max-width:760px;margin:0 auto}
+.grid{display:grid;grid-template-columns:repeat(2,1fr);gap:12px}
+@media(min-width:560px){.grid{grid-template-columns:repeat(3,1fr)}}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;overflow:hidden;cursor:pointer;display:flex;flex-direction:column;text-align:left;padding:0;color:inherit;font:inherit}
+.thumb{aspect-ratio:1/1;background:var(--line);display:flex;align-items:center;justify-content:center;font-size:40px;font-weight:700;color:var(--mute);overflow:hidden}
+.thumb img{width:100%;height:100%;object-fit:cover}
+.card .t{padding:10px 12px}
+.card b{display:block;font-weight:700}
+.card small{color:var(--mute)}
+.empty{text-align:center;color:var(--mute);padding:60px 20px}
+.big{display:grid;gap:12px}
+.big .card{flex-direction:row;align-items:center;padding:18px;gap:14px}
+.big .ico{font-size:30px}
+.sheet{position:fixed;inset:0;background:rgba(0,0,0,.5);display:flex;align-items:flex-end;justify-content:center;z-index:20}
+.sheet form{background:var(--card);width:100%;max-width:560px;max-height:92vh;overflow:auto;border-radius:18px 18px 0 0;padding:18px 18px calc(18px + env(safe-area-inset-bottom,0px))}
+.sheet h2{margin:0 0 12px;font-size:20px}
+label{display:block;font-weight:500;margin:12px 0 4px}
+input[type=text],input[type=number],input[type=email],input[type=password],select{width:100%;padding:12px;border:1px solid var(--line);border-radius:10px;background:var(--bg);color:var(--ink);font:inherit}
+.seg{display:flex;gap:8px}
+.seg button{flex:1;padding:12px;border-radius:10px;border:1px solid var(--line);background:var(--bg);color:var(--ink);font:inherit;cursor:pointer}
+.seg button.on{background:var(--acc);color:var(--acc-ink);border-color:var(--acc)}
+.pv{margin-top:8px;max-height:160px;border-radius:10px;display:block}
+.row{display:flex;gap:10px;margin-top:18px}
+.btn{flex:1;padding:13px;border-radius:12px;border:1px solid var(--line);background:var(--bg);color:var(--ink);font:700 16px inherit;cursor:pointer}
+.btn.p{background:var(--acc);color:var(--acc-ink);border-color:var(--acc)}
+.btn.d{color:var(--danger)}
+.cover{width:100%;max-height:60vh;object-fit:contain;background:var(--line);border-radius:14px}
+.tools{margin-top:24px}.st{text-align:center;color:var(--mute);margin:12px 0 0}.hint{color:var(--mute);margin:8px 0 0;font-size:14px}
+dl{margin:16px 0;display:grid;grid-template-columns:auto 1fr;gap:10px 16px}
+dt{color:var(--mute)}dd{margin:0;font-weight:500;text-align:right}
+</style>
+</head>
+<body>
+<header id="hd"></header>
+<main id="mn"></main>
+<div id="sh"></div>
+<script>
+const KEY='mi-coleccion-v1';
+/* Pega aquí la configuración de tu proyecto de Firebase, p. ej. {apiKey:"...",authDomain:"...",projectId:"...",appId:"..."} */
+const FIREBASE_CONFIG={apiKey:"AIzaSyCwRrHPFIoCVqlxqiMjh8a3jHaTB0Lr8Eg",authDomain:"arcadia-b1538.firebaseapp.com",projectId:"arcadia-b1538",storageBucket:"arcadia-b1538.firebasestorage.app",messagingSenderId:"546003522140",appId:"1:546003522140:web:0d4e47c7104566e384cc99"};
+let data={consoles:[]},db=null,prev={},stTxt='',auth=null,pfx='',CK=KEY;
+try{const r=localStorage.getItem(KEY);if(r)data=JSON.parse(r)}catch(e){}
+function status(t){stTxt=t;const e=document.getElementById('st');if(e)e.textContent=t}
+function flat(d){const m={};d.consoles.forEach(c=>{const{games,acc,...r}=c;m[pfx+'consoles/'+c.id]=r;games.forEach(g=>m[pfx+'items/'+g.id]={...g,cid:c.id,k:'games'});acc.forEach(g=>m[pfx+'items/'+g.id]={...g,cid:c.id,k:'acc'})});return m}
+async function save(){
+  try{localStorage.setItem(CK,JSON.stringify(data))}catch(e){alert('No se pudo guardar: el almacenamiento está lleno.')}
+  if(!db)return;
+  const cur=flat(data),b=db.batch();let n=0;
+  for(const p in cur)if(JSON.stringify(cur[p])!==JSON.stringify(prev[p])){b.set(db.doc(p),cur[p]);n++}
+  for(const p in prev)if(!(p in cur)){b.delete(db.doc(p));n++}
+  if(!n)return;
+  try{await b.commit();prev=JSON.parse(JSON.stringify(cur));status('Sincronizado con Firebase')}catch(e){status('No se pudo sincronizar; los cambios quedan en este móvil')}
+}
+const loadJs=u=>new Promise((ok,ko)=>{const s=document.createElement('script');s.src=u;s.onload=ok;s.onerror=ko;document.head.appendChild(s)});
+async function initFB(){
+  if(!FIREBASE_CONFIG){status('Guardado solo en este móvil');return}
+  go({s:'load'});
+  try{
+    const b='https://www.gstatic.com/firebasejs/10.12.2/';
+    await loadJs(b+'firebase-app-compat.js');await loadJs(b+'firebase-auth-compat.js');await loadJs(b+'firebase-firestore-compat.js');
+    firebase.initializeApp(FIREBASE_CONFIG);db=firebase.firestore();auth=firebase.auth();
+    auth.onAuthStateChanged(u=>{if(u)startUser(u);else{pfx='';prev={};data={consoles:[]};go({s:'login'})}});
+  }catch(e){db=null;status('No se pudo conectar con Firebase; usando la copia de este móvil');go({s:'home'})}
+}
+async function startUser(u){
+  try{
+    pfx='users/'+u.uid+'/';CK=KEY+'-'+u.uid;
+    const [c,i]=await Promise.all([db.collection(pfx+'consoles').get(),db.collection(pfx+'items').get()]);
+    if(c.empty){prev={};await save();try{localStorage.removeItem(KEY)}catch(e){}go({s:'home'});return}
+    const cs=c.docs.map(d=>({...d.data(),games:[],acc:[]})).sort((a,b)=>a.id<b.id?-1:1),by={};
+    cs.forEach(x=>by[x.id]=x);
+    i.docs.map(d=>d.data()).sort((a,b)=>a.id<b.id?-1:1).forEach(o=>{const t=by[o.cid];if(t){const{cid,k,...r}=o;t[k].push(r)}});
+    data={consoles:cs};prev=JSON.parse(JSON.stringify(flat(data)));
+    try{localStorage.setItem(CK,JSON.stringify(data))}catch(e){}
+    status('Sincronizado con Firebase');go({s:'home'});
+  }catch(e){db=null;status('Sin conexión con Firebase; usando la copia de este móvil');go({s:'home'})}
+}
+const LOGOS=[
+[/play ?station|\bps ?\d\b|\bpsp\b|\bvita\b/i,'#0b3d91','#fff','PS#','PlayStation'],
+[/xbox/i,'#107c10','#fff','XBOX','Xbox'],
+[/switch/i,'#e60012','#fff','SWITCH','Nintendo'],
+[/nintendo 64|\bn64\b/i,'#1a8a3c','#fff','N64','Nintendo'],
+[/game ?cube/i,'#5b3fa0','#fff','GAMECUBE','Nintendo'],
+[/game ?boy|\bgba\b/i,'#8a9a5b','#1b2410','GAME BOY','Nintendo'],
+[/\b3?ds\b/i,'#d4202c','#fff','DS','Nintendo'],
+[/\bwii\b/i,'#35b6d8','#fff','Wii','Nintendo'],
+[/super nintendo|\bsnes\b|super nes/i,'#6b5f9c','#fff','SNES','Nintendo'],
+[/\bnes\b|nintendo entertainment/i,'#b3261e','#fff','NES','Nintendo'],
+[/mega ?drive|genesis|master system|dreamcast|saturn|game gear|\bsega\b/i,'#1457b8','#fff','SEGA','Sega'],
+[/atari/i,'#c1121f','#fff','ATARI','Atari'],
+[/neo ?geo/i,'#222','#f2c200','NEO GEO','SNK'],
+[/steam deck/i,'#1b2838','#66c0f4','STEAM','Steam Deck']
+];
+function logoFor(n){
+  const e=LOGOS.find(l=>l[0].test(n));if(!e)return'';
+  const d=(n.match(/\d+/)||[''])[0],big=e[3].replace('#',d),fs=big.length>5?70:big.length>3?100:130;
+  const s=`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 400"><rect width="400" height="400" fill="${e[1]}"/><text x="200" y="215" text-anchor="middle" font-family="Arial,sans-serif" font-weight="700" font-size="${fs}" fill="${e[2]}">${big}</text><text x="200" y="290" text-anchor="middle" font-family="Arial,sans-serif" font-size="30" fill="${e[2]}" opacity=".85">${e[4]}</text></svg>`;
+  return'data:image/svg+xml;charset=utf-8,'+encodeURIComponent(s);
+}
+function renderLogin(){
+  $('hd').innerHTML='<h1>Arcadia</h1>';
+  const mn=$('mn');
+  if(v.s==='load'){mn.innerHTML='<div class="empty">Cargando…</div>';return}
+  mn.innerHTML=`<p class="hint">Inicia sesión para acceder a tu colección desde cualquier dispositivo.</p><label for="em">Correo electrónico</label><input type="email" id="em" autocomplete="username"><label for="pw">Contraseña</label><input type="password" id="pw" autocomplete="current-password"><p class="hint" id="er" role="alert"></p><div class="row"><button class="btn p" id="li">Entrar</button><button class="btn" id="su">Crear cuenta</button></div><div class="row"><button class="btn" id="fp">He olvidado mi contraseña</button></div>`;
+  const say=(t,ok)=>{$('er').textContent=t;$('er').style.color=ok?'var(--ink)':'var(--danger)'};
+  const msg=c=>({'auth/invalid-email':'El correo no es válido.','auth/missing-password':'Escribe la contraseña.','auth/weak-password':'La contraseña debe tener al menos 6 caracteres.','auth/email-already-in-use':'Ese correo ya tiene una cuenta.','auth/invalid-credential':'Correo o contraseña incorrectos.','auth/network-request-failed':'Sin conexión a internet.','auth/too-many-requests':'Demasiados intentos; espera un poco.'}[c]||'No se pudo completar la operación.');
+  const run=async f=>{say('');try{await f()}catch(x){say(msg(x.code))}};
+  $('li').onclick=()=>run(()=>auth.signInWithEmailAndPassword($('em').value.trim(),$('pw').value));
+  $('su').onclick=()=>run(()=>auth.createUserWithEmailAndPassword($('em').value.trim(),$('pw').value));
+  $('fp').onclick=()=>run(async()=>{const m=$('em').value.trim();if(!m){say('Escribe tu correo arriba.');return}await auth.sendPasswordResetEmail(m);say('Te hemos enviado un correo para restablecerla.',true)});
+}
+function exportData(){
+  const b=new Blob([JSON.stringify(data)],{type:'application/json'}),a=document.createElement('a');
+  a.href=URL.createObjectURL(b);a.download='arcadia-'+new Date().toISOString().slice(0,10)+'.json';
+  document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(a.href),1000);
+}
+async function importData(e){
+  const f=e.target.files[0];if(!f)return;
+  try{
+    const d=JSON.parse(await f.text());if(!Array.isArray(d.consoles))throw 0;
+    if(!confirm('Esto reemplazará tu colección actual. ¿Continuar?')){e.target.value='';return}
+    d.consoles.forEach(c=>{c.games=c.games||[];c.acc=c.acc||[]});
+    data={consoles:d.consoles};await save();render();
+  }catch(x){alert('El archivo no es una copia válida.')}
+  e.target.value='';
+}
+let v={s:'home'};
+const $=id=>document.getElementById(id);
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const uid=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,6);
+const con=()=>data.consoles.find(c=>c.id===v.cid);
+const items=()=>con()[v.k];
+const kindName=k=>k==='games'?'Juegos':'Accesorios';
+const thumb=(i,n)=>`<div class="thumb">${i?`<img src="${i}" alt="">`:esc((n||'?').trim().charAt(0).toUpperCase())}</div>`;
+const money=p=>p===''||p==null?'—':Number(p).toLocaleString('es-ES',{style:'currency',currency:'EUR'});
+
+function go(n){v=n;render()}
+function render(){
+  if(v.s==='login'||v.s==='load')return renderLogin();
+  const hd=$('hd'),mn=$('mn');
+  if(v.s==='home'){
+    hd.innerHTML='<h1>Arcadia</h1><button class="ib" id="add" aria-label="Añadir consola">+</button>';
+    $('add').onclick=()=>formConsole();
+    mn.innerHTML=data.consoles.length?'<div class="grid">'+data.consoles.map(c=>`<button class="card" data-id="${c.id}">${thumb(c.img,c.name)}<div class="t"><b>${esc(c.name)}</b><small>${c.games.length} juegos · ${c.acc.length} accesorios</small></div></button>`).join('')+'</div>':'<div class="empty">Aún no tienes consolas.<br>Toca + para añadir la primera.</div>';
+    mn.querySelectorAll('.card').forEach(b=>b.onclick=()=>go({s:'console',cid:b.dataset.id}));
+    mn.insertAdjacentHTML('beforeend',`<div class="row tools"><button class="btn" id="ex">Exportar copia</button><button class="btn" id="im">Importar copia</button></div><p class="st"><small id="st">${esc(stTxt)}</small></p><input type="file" id="imf" accept="application/json,.json" hidden>`);
+    $('ex').onclick=exportData;if(auth&&auth.currentUser){const lo=document.createElement('button');lo.className='btn';lo.textContent='Cerrar sesión ('+auth.currentUser.email+')';lo.style.cssText='width:100%;margin-top:10px';lo.onclick=()=>auth.signOut();mn.appendChild(lo)}$('im').onclick=()=>$('imf').click();$('imf').onchange=importData;
+  }else if(v.s==='console'){
+    const c=con();
+    hd.innerHTML=`<button class="ib back" id="bk" aria-label="Volver">←</button><h1>${esc(c.name)}</h1>`;
+    $('bk').onclick=()=>go({s:'home'});
+    mn.innerHTML=`<div class="big"><button class="card" data-k="games"><span class="ico">🎮</span><span><b>Juegos</b><small>${c.games.length} guardados</small></span></button><button class="card" data-k="acc"><span class="ico">🕹️</span><span><b>Accesorios</b><small>${c.acc.length} guardados</small></span></button></div><div class="row"><button class="btn" id="ec">Editar consola</button><button class="btn d" id="dc">Eliminar consola</button></div>`;
+    mn.querySelectorAll('.card').forEach(b=>b.onclick=()=>go({s:'list',cid:c.id,k:b.dataset.k}));
+    $('ec').onclick=()=>formConsole(c);
+    $('dc').onclick=()=>{if(confirm('¿Eliminar '+c.name+' con todo su contenido?')){data.consoles=data.consoles.filter(x=>x.id!==c.id);save();go({s:'home'})}};
+  }else if(v.s==='list'){
+    const l=items();
+    hd.innerHTML=`<button class="ib back" id="bk" aria-label="Volver">←</button><h1>${kindName(v.k)}</h1><button class="ib" id="add" aria-label="Añadir">+</button>`;
+    $('bk').onclick=()=>go({s:'console',cid:v.cid});
+    $('add').onclick=()=>formItem();
+    mn.innerHTML=l.length?'<div class="grid">'+l.map(g=>`<button class="card" data-id="${g.id}">${thumb(g.img,g.name)}<div class="t"><b>${esc(g.name)}</b></div></button>`).join('')+'</div>':`<div class="empty">Todavía no hay ${kindName(v.k).toLowerCase()}.<br>Toca + para añadir uno.</div>`;
+    mn.querySelectorAll('.card').forEach(b=>b.onclick=()=>go({s:'detail',cid:v.cid,k:v.k,i:b.dataset.id}));
+  }else{
+    const g=items().find(x=>x.id===v.i);
+    hd.innerHTML=`<button class="ib back" id="bk" aria-label="Volver">←</button><h1>${esc(g.name)}</h1>`;
+    $('bk').onclick=()=>go({s:'list',cid:v.cid,k:v.k});
+    const yn=b=>b?'Sí':'No';
+    let rows=`<dt>Precio de compra</dt><dd>${money(g.price)}</dd>`;
+    if(v.k==='games')rows+=`<dt>Idioma</dt><dd>${esc(g.lang||'—')}</dd>`;
+    rows+=`<dt>¿Está completo?</dt><dd>${yn(g.complete)}</dd>`;
+    if(!g.complete)rows+=`<dt>¿Tiene caja?</dt><dd>${yn(g.box)}</dd><dt>¿Tiene manual?</dt><dd>${yn(g.manual)}</dd>`;
+    mn.innerHTML=(g.img?`<img class="cover" src="${g.img}" alt="">`:'')+`<dl>${rows}</dl><div class="row"><button class="btn" id="ed">Editar</button><button class="btn d" id="dl">Eliminar</button></div>`;
+    $('ed').onclick=()=>formItem(g);
+    $('dl').onclick=()=>{if(confirm('¿Eliminar '+g.name+'?')){con()[v.k]=items().filter(x=>x.id!==g.id);save();go({s:'list',cid:v.cid,k:v.k})}};
+  }
+}
+
+function resize(file){return new Promise((ok,ko)=>{const r=new FileReader();r.onerror=ko;r.onload=()=>{const im=new Image();im.onerror=ko;im.onload=()=>{const m=480,s=Math.min(1,m/Math.max(im.width,im.height));const c=document.createElement('canvas');c.width=Math.round(im.width*s);c.height=Math.round(im.height*s);c.getContext('2d').drawImage(im,0,0,c.width,c.height);ok(c.toDataURL('image/jpeg',.72))};im.src=r.result};r.readAsDataURL(file)})}
+
+function sheet(title,body,onSave,init){
+  $('sh').innerHTML=`<div class="sheet"><form id="fm"><h2>${title}</h2>${body}<div class="row"><button type="button" class="btn" id="cn">Cancelar</button><button type="submit" class="btn p">Guardar</button></div></form></div>`;
+  $('cn').onclick=()=>$('sh').innerHTML='';
+  let img=init||'';
+  const f=$('ph');
+  if(f)f.onchange=async()=>{if(f.files[0]){try{img=await resize(f.files[0]);$('pv').innerHTML=`<img class="pv" src="${img}" alt="">`}catch(e){alert('No se pudo leer la foto.')}}};
+  if(img&&$('pv'))$('pv').innerHTML=`<img class="pv" src="${img}" alt="">`;
+  $('fm').onsubmit=e=>{e.preventDefault();onSave(img);$('sh').innerHTML='';save();render()};
+}
+
+function formConsole(e){
+  sheet(e?'Editar consola':'Nueva consola',`<label for="nm">Nombre</label><input type="text" id="nm" required placeholder="PlayStation 4" value="${esc(e?e.name:'')}"><p class="hint" id="ht">${e?'Cambia el nombre o sube otra foto.':'Escribe el nombre y detectaré el logotipo.'}</p><label for="ph">${e?'Foto':'Foto manual (opcional)'}</label><input type="file" id="ph" accept="image/*"><div id="pv"></div>`,
+  img=>{const n=$('nm').value.trim();if(e){e.name=n;e.img=img}else data.consoles.push({id:uid(),name:n,img:img||logoFor(n),games:[],acc:[]})},e?e.img:'');
+  let manual=false;
+  $('ph').addEventListener('change',()=>manual=true);
+  if(!e)$('nm').oninput=()=>{
+    const n=$('nm').value.trim(),l=logoFor(n);
+    $('ht').textContent=!n?'Escribe el nombre y detectaré el logotipo.':l?'Logotipo detectado. Si prefieres otra imagen, sube tu foto.':'No he reconocido esta consola. Sube una foto a mano.';
+    if(!manual)$('pv').innerHTML=l?`<img class="pv" src="${l}" alt="">`:'';
+  };
+}
+
+function formItem(e){
+  const g=e||{},isG=v.k==='games';
+  let complete=g.complete!==false&&(e?g.complete:true),box=!!g.box,manual=!!g.manual;
+  const seg=(id,val)=>`<div class="seg" id="${id}"><button type="button" data-v="1" class="${val?'on':''}">Sí</button><button type="button" data-v="0" class="${val?'':'on'}">No</button></div>`;
+  sheet(e?'Editar':(isG?'Nuevo juego':'Nuevo accesorio'),
+  `<label for="nm">Nombre</label><input type="text" id="nm" required value="${esc(g.name||'')}">
+   <label for="pr">Precio de compra (€)</label><input type="number" id="pr" min="0" step="0.01" inputmode="decimal" value="${esc(g.price??'')}">
+   ${isG?`<label for="lg">Idioma</label><input type="text" id="lg" list="lgs" placeholder="Español" value="${esc(g.lang||'')}"><datalist id="lgs"><option>Español</option><option>Inglés</option><option>Japonés</option><option>Francés</option><option>Alemán</option><option>Italiano</option><option>Multiidioma</option></datalist>`:''}
+   <label>¿Está completo?</label>${seg('sc',complete)}
+   <div id="inc"></div>
+   <label for="ph">Foto (será la portada)</label><input type="file" id="ph" accept="image/*"><div id="pv"></div>`,
+  img=>{
+    const o={id:g.id||uid(),name:$('nm').value.trim(),price:$('pr').value,lang:isG?$('lg').value.trim():'',complete,box:complete?true:box,manual:complete?true:manual,img};
+    const l=items();
+    if(e)l[l.findIndex(x=>x.id===g.id)]=o;else l.push(o);
+    if(e)v={s:'detail',cid:v.cid,k:v.k,i:o.id};
+  },g.img);
+  const inc=()=>{$('inc').innerHTML=complete?'':`<label>¿Tiene caja?</label>${seg('sb',box)}<label>¿Tiene manual?</label>${seg('sm',manual)}`;
+    if(!complete){wire('sb',x=>box=x);wire('sm',x=>manual=x)}};
+  function wire(id,set){$(id).querySelectorAll('button').forEach(b=>b.onclick=()=>{set(b.dataset.v==='1');$(id).querySelectorAll('button').forEach(x=>x.classList.toggle('on',x===b))})}
+  wire('sc',x=>{complete=x;inc()});
+  inc();
+}
+render();initFB();
+</script>
+</body>
+</html>
