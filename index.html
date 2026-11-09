@@ -49,6 +49,11 @@ input[type=text],input[type=number],input[type=email],input[type=password],selec
 .btn.d{color:var(--danger)}
 .cover{width:100%;max-height:60vh;object-fit:contain;background:var(--line);border-radius:14px}
 .tools{margin-top:24px}.st{text-align:center;color:var(--mute);margin:12px 0 0}.hint{color:var(--mute);margin:8px 0 0;font-size:14px}
+.ib svg{display:block;margin:auto}
+header input[type=search]{flex:1;min-width:0;padding:12px;border:1px solid var(--line);border-radius:10px;background:var(--card);color:var(--ink);font:inherit}
+.card.res{flex-direction:row;align-items:center;gap:12px;padding:8px;margin-bottom:8px;width:100%}
+.res .thumb{width:56px;height:56px;aspect-ratio:auto;border-radius:10px;font-size:22px;flex:none}
+.res .t{padding:0}
 dl{margin:16px 0;display:grid;grid-template-columns:auto 1fr;gap:10px 16px}
 dt{color:var(--mute)}dd{margin:0;font-weight:500;text-align:right}
 </style>
@@ -77,26 +82,26 @@ async function save(){
 const loadJs=u=>new Promise((ok,ko)=>{const s=document.createElement('script');s.src=u;s.onload=ok;s.onerror=ko;document.head.appendChild(s)});
 async function initFB(){
   if(!FIREBASE_CONFIG){status('Guardado solo en este móvil');return}
-  go({s:'load'});
+  go({s:'load'},true);
   try{
     const b='https://www.gstatic.com/firebasejs/10.12.2/';
     await loadJs(b+'firebase-app-compat.js');await loadJs(b+'firebase-auth-compat.js');await loadJs(b+'firebase-firestore-compat.js');
     firebase.initializeApp(FIREBASE_CONFIG);db=firebase.firestore();auth=firebase.auth();
-    auth.onAuthStateChanged(u=>{if(u)startUser(u);else{pfx='';prev={};data={consoles:[]};go({s:'login'})}});
-  }catch(e){db=null;status('No se pudo conectar con Firebase; usando la copia de este móvil');go({s:'home'})}
+    auth.onAuthStateChanged(u=>{if(u)startUser(u);else{pfx='';prev={};data={consoles:[]};go({s:'login'},true)}});
+  }catch(e){db=null;status('No se pudo conectar con Firebase; usando la copia de este móvil');go({s:'home'},true)}
 }
 async function startUser(u){
   try{
     pfx='users/'+u.uid+'/';CK=KEY+'-'+u.uid;
     const [c,i]=await Promise.all([db.collection(pfx+'consoles').get(),db.collection(pfx+'items').get()]);
-    if(c.empty){prev={};await save();try{localStorage.removeItem(KEY)}catch(e){}go({s:'home'});return}
+    if(c.empty){prev={};await save();try{localStorage.removeItem(KEY)}catch(e){}go({s:'home'},true);return}
     const cs=c.docs.map(d=>({...d.data(),games:[],acc:[]})).sort((a,b)=>a.id<b.id?-1:1),by={};
     cs.forEach(x=>by[x.id]=x);
     i.docs.map(d=>d.data()).sort((a,b)=>a.id<b.id?-1:1).forEach(o=>{const t=by[o.cid];if(t){const{cid,k,...r}=o;t[k].push(r)}});
     data={consoles:cs};prev=JSON.parse(JSON.stringify(flat(data)));
     try{localStorage.setItem(CK,JSON.stringify(data))}catch(e){}
-    status('Sincronizado con Firebase');go({s:'home'});
-  }catch(e){db=null;status('Sin conexión con Firebase; usando la copia de este móvil');go({s:'home'})}
+    status('Sincronizado con Firebase');go({s:'home'},true);
+  }catch(e){db=null;status('Sin conexión con Firebase; usando la copia de este móvil');go({s:'home'},true)}
 }
 const LOGOS=[
 [/play ?station|\bps ?\d\b|\bpsp\b|\bvita\b/i,'#0b3d91','#fff','PS#','PlayStation'],
@@ -136,6 +141,29 @@ function badgeFor(n){
   const s=`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 400"><rect width="400" height="400" fill="${e[1]}"/><text x="200" y="215" text-anchor="middle" font-family="Arial,sans-serif" font-weight="700" font-size="${fs}" fill="${e[2]}">${big}</text><text x="200" y="290" text-anchor="middle" font-family="Arial,sans-serif" font-size="30" fill="${e[2]}" opacity=".85">${e[4]}</text></svg>`;
   return'data:image/svg+xml;charset=utf-8,'+encodeURIComponent(s);
 }
+let lastQ='';
+const norm=s=>String(s??'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();
+function renderSearch(){
+  $('hd').innerHTML='<button class="ib back" id="bk" aria-label="Volver">←</button><input type="search" id="q" placeholder="Buscar en toda la colección…" aria-label="Buscar" autocomplete="off">';
+  $('bk').onclick=goBack;
+  $('mn').innerHTML='<p class="hint" id="cnt"></p><div id="res"></div>';
+  const q=$('q');q.value=lastQ;
+  const run=()=>{
+    lastQ=q.value;
+    const ws=norm(q.value).split(/\s+/).filter(Boolean),res=$('res'),cnt=$('cnt');
+    if(!ws.length){cnt.textContent='Escribe el nombre de un juego, accesorio o consola.';res.innerHTML='';return}
+    const r=[];
+    data.consoles.forEach(c=>{
+      const add=(o,k)=>{const h=norm(o.name+(k==='con'?'':' '+c.name));if(ws.every(w=>h.includes(w)))r.push({o,c,k})};
+      add(c,'con');c.games.forEach(g=>add(g,'games'));c.acc.forEach(g=>add(g,'acc'));
+    });
+    r.sort((a,b)=>{const x=norm(a.o.name),y=norm(b.o.name);return x<y?-1:x>y?1:a.c.name<b.c.name?-1:1});
+    cnt.textContent=r.length?r.length+(r.length===1?' resultado':' resultados'):'Sin resultados.';
+    res.innerHTML=r.map((x,i)=>`<button class="card res" data-i="${i}">${thumb(x.o.img,x.o.name)}<div class="t"><b>${esc(x.o.name)}</b><small>${x.k==='con'?'Consola':(x.k==='games'?'Juego':'Accesorio')+' · '+esc(x.c.name)}</small></div></button>`).join('');
+    res.querySelectorAll('.res').forEach(b=>b.onclick=()=>{const x=r[b.dataset.i];go(x.k==='con'?{s:'console',cid:x.c.id}:{s:'detail',cid:x.c.id,k:x.k,i:x.o.id})});
+  };
+  q.oninput=run;run();q.focus();
+}
 function renderLogin(){
   $('hd').innerHTML='<h1>Arcadia</h1>';
   const mn=$('mn');
@@ -173,36 +201,57 @@ const kindName=k=>k==='games'?'Juegos':'Accesorios';
 const thumb=(i,n)=>`<div class="thumb">${i?`<img src="${i}" alt="">`:esc((n||'?').trim().charAt(0).toUpperCase())}</div>`;
 const money=p=>p===''||p==null?'—':Number(p).toLocaleString('es-ES',{style:'currency',currency:'EUR'});
 
-function go(n){v=n;render()}
+function go(n,replace){
+  v=n;
+  const d=(history.state&&history.state.d)||0;
+  try{if(replace)history.replaceState({d,v:n},'');else history.pushState({d:d+1,v:n},'')}catch(e){}
+  render();
+}
+function parentOf(s){return s==='detail'?{s:'list',cid:v.cid,k:v.k}:s==='list'?{s:'console',cid:v.cid}:(s==='console'||s==='search')?{s:'home'}:null}
+function goBack(){
+  if(history.state&&history.state.d>0)history.back();
+  else{const p=parentOf(v.s);if(p)go(p,true)}
+}
+function closeSheet(){if(history.state&&history.state.sh)history.back();else $('sh').innerHTML=''}
+addEventListener('popstate',e=>{$('sh').innerHTML='';v=(e.state&&e.state.v)||{s:'home'};render()});
+let tx=0,ty=0,tok=false;
+addEventListener('touchstart',e=>{const t=e.touches[0];tx=t.clientX;ty=t.clientY;tok=!e.target.closest('input,textarea,select')},{passive:true});
+addEventListener('touchend',e=>{
+  const t=e.changedTouches[0],dx=t.clientX-tx,dy=Math.abs(t.clientY-ty);
+  if(tok&&tx<innerWidth*0.5&&dx>90&&dy<50)goBack();
+},{passive:true});
 function render(){
   if(v.s==='login'||v.s==='load')return renderLogin();
   const hd=$('hd'),mn=$('mn');
+  if(v.cid&&!con())v={s:'home'};
+  else if(v.s==='detail'&&!items().find(x=>x.id===v.i))v={s:'list',cid:v.cid,k:v.k};
   if(v.s==='home'){
-    hd.innerHTML='<h1>Arcadia</h1><button class="ib" id="add" aria-label="Añadir consola">+</button>';
+    hd.innerHTML='<h1>Arcadia</h1><button class="ib back" id="sr" aria-label="Buscar"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5"/><path d="M15.5 15.5L21 21"/></svg></button><button class="ib" id="add" aria-label="Añadir consola">+</button>';
     $('add').onclick=()=>formConsole();
+    $('sr').onclick=()=>go({s:'search'});
     mn.innerHTML=data.consoles.length?'<div class="grid">'+data.consoles.map(c=>`<button class="card" data-id="${c.id}">${thumb(c.img,c.name)}<div class="t"><b>${esc(c.name)}</b><small>${c.games.length} juegos · ${c.acc.length} accesorios</small></div></button>`).join('')+'</div>':'<div class="empty">Aún no tienes consolas.<br>Toca + para añadir la primera.</div>';
     mn.querySelectorAll('.card').forEach(b=>b.onclick=()=>go({s:'console',cid:b.dataset.id}));
     mn.insertAdjacentHTML('beforeend',`<div class="row tools"><button class="btn" id="ex">Exportar copia</button><button class="btn" id="im">Importar copia</button></div><p class="st"><small id="st">${esc(stTxt)}</small></p><input type="file" id="imf" accept="application/json,.json" hidden>`);
     $('ex').onclick=exportData;if(auth&&auth.currentUser){const lo=document.createElement('button');lo.className='btn';lo.textContent='Cerrar sesión ('+auth.currentUser.email+')';lo.style.cssText='width:100%;margin-top:10px';lo.onclick=()=>auth.signOut();mn.appendChild(lo)}$('im').onclick=()=>$('imf').click();$('imf').onchange=importData;
-  }else if(v.s==='console'){
+  }else if(v.s==='search'){renderSearch();}else if(v.s==='console'){
     const c=con();
     hd.innerHTML=`<button class="ib back" id="bk" aria-label="Volver">←</button><h1>${esc(c.name)}</h1>`;
-    $('bk').onclick=()=>go({s:'home'});
+    $('bk').onclick=goBack;
     mn.innerHTML=`<div class="big"><button class="card" data-k="games"><span class="ico">🎮</span><span><b>Juegos</b><small>${c.games.length} guardados</small></span></button><button class="card" data-k="acc"><span class="ico">🕹️</span><span><b>Accesorios</b><small>${c.acc.length} guardados</small></span></button></div><div class="row"><button class="btn" id="ec">Editar consola</button><button class="btn d" id="dc">Eliminar consola</button></div>`;
     mn.querySelectorAll('.card').forEach(b=>b.onclick=()=>go({s:'list',cid:c.id,k:b.dataset.k}));
     $('ec').onclick=()=>formConsole(c);
-    $('dc').onclick=()=>{if(confirm('¿Eliminar '+c.name+' con todo su contenido?')){data.consoles=data.consoles.filter(x=>x.id!==c.id);save();go({s:'home'})}};
+    $('dc').onclick=()=>{if(confirm('¿Eliminar '+c.name+' con todo su contenido?')){data.consoles=data.consoles.filter(x=>x.id!==c.id);save();goBack()}};
   }else if(v.s==='list'){
     const l=items();
     hd.innerHTML=`<button class="ib back" id="bk" aria-label="Volver">←</button><h1>${kindName(v.k)}</h1><button class="ib" id="add" aria-label="Añadir">+</button>`;
-    $('bk').onclick=()=>go({s:'console',cid:v.cid});
+    $('bk').onclick=goBack;
     $('add').onclick=()=>formItem();
     mn.innerHTML=l.length?'<div class="grid">'+l.map(g=>`<button class="card" data-id="${g.id}">${thumb(g.img,g.name)}<div class="t"><b>${esc(g.name)}</b></div></button>`).join('')+'</div>':`<div class="empty">Todavía no hay ${kindName(v.k).toLowerCase()}.<br>Toca + para añadir uno.</div>`;
     mn.querySelectorAll('.card').forEach(b=>b.onclick=()=>go({s:'detail',cid:v.cid,k:v.k,i:b.dataset.id}));
   }else{
     const g=items().find(x=>x.id===v.i);
     hd.innerHTML=`<button class="ib back" id="bk" aria-label="Volver">←</button><h1>${esc(g.name)}</h1>`;
-    $('bk').onclick=()=>go({s:'list',cid:v.cid,k:v.k});
+    $('bk').onclick=goBack;
     const yn=b=>b?'Sí':'No';
     let rows=`<dt>Precio de compra</dt><dd>${money(g.price)}</dd>`;
     if(v.k==='games')rows+=`<dt>Idioma</dt><dd>${esc(g.lang||'—')}</dd>`;
@@ -210,20 +259,21 @@ function render(){
     if(!g.complete)rows+=`<dt>¿Tiene caja?</dt><dd>${yn(g.box)}</dd><dt>¿Tiene manual?</dt><dd>${yn(g.manual)}</dd>`;
     mn.innerHTML=(g.img?`<img class="cover" src="${g.img}" alt="">`:'')+`<dl>${rows}</dl><div class="row"><button class="btn" id="ed">Editar</button><button class="btn d" id="dl">Eliminar</button></div>`;
     $('ed').onclick=()=>formItem(g);
-    $('dl').onclick=()=>{if(confirm('¿Eliminar '+g.name+'?')){con()[v.k]=items().filter(x=>x.id!==g.id);save();go({s:'list',cid:v.cid,k:v.k})}};
+    $('dl').onclick=()=>{if(confirm('¿Eliminar '+g.name+'?')){con()[v.k]=items().filter(x=>x.id!==g.id);save();goBack()}};
   }
 }
 
 function resize(file){return new Promise((ok,ko)=>{const r=new FileReader();r.onerror=ko;r.onload=()=>{const im=new Image();im.onerror=ko;im.onload=()=>{const m=480,s=Math.min(1,m/Math.max(im.width,im.height));const c=document.createElement('canvas');c.width=Math.round(im.width*s);c.height=Math.round(im.height*s);c.getContext('2d').drawImage(im,0,0,c.width,c.height);ok(c.toDataURL('image/jpeg',.72))};im.src=r.result};r.readAsDataURL(file)})}
 
 function sheet(title,body,onSave,init){
+  try{history.pushState({d:((history.state&&history.state.d)||0)+1,v,sh:1},'')}catch(e){}
   $('sh').innerHTML=`<div class="sheet"><form id="fm"><h2>${title}</h2>${body}<div class="row"><button type="button" class="btn" id="cn">Cancelar</button><button type="submit" class="btn p">Guardar</button></div></form></div>`;
-  $('cn').onclick=()=>$('sh').innerHTML='';
+  $('cn').onclick=closeSheet;
   let img=init||'';
   const f=$('ph');
   if(f)f.onchange=async()=>{if(f.files[0]){try{img=await resize(f.files[0]);$('pv').innerHTML=`<img class="pv" src="${img}" alt="">`}catch(e){alert('No se pudo leer la foto.')}}};
   if(img&&$('pv'))$('pv').innerHTML=`<img class="pv" src="${img}" alt="">`;
-  $('fm').onsubmit=e=>{e.preventDefault();onSave(img);$('sh').innerHTML='';save();render()};
+  $('fm').onsubmit=e=>{e.preventDefault();onSave(img);save();closeSheet();render()};
 }
 
 function formConsole(e){
@@ -261,6 +311,7 @@ function formItem(e){
   wire('sc',x=>{complete=x;inc()});
   inc();
 }
+try{history.replaceState({d:0,v},'')}catch(e){}
 render();initFB();
 if('serviceWorker' in navigator)navigator.serviceWorker.register('sw.js').catch(()=>{});
 </script>
